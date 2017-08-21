@@ -1,0 +1,3 @@
+.			2	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2017082100 2 900 604800 86400
+.			2	IN	NS	a.root-servers.net.
+test.			2	IN	NS	ns1.dns.nic.test.
