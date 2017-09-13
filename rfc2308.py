@@ -16,15 +16,23 @@ class Cache(object):
         self.storage = {}
         self.hit = 0
         self.miss = 0
+        self.start = int(time.monotonic())
+        self.now = self.start
 
     def __str__(self):
         return pformat({'hit': self.hit, 'miss': self.miss})
+
+    def set_reltime(self, reltime):
+        """
+        move relative time
+        """
+        self.now = self.start + reltime
 
     def put_name(self, name, ttl):
         """
         cache information for whole name
         """
-        self.storage[name] = int(time.monotonic() + ttl)
+        self.storage[name] = self.now + ttl
 
     def get_name(self, name):
         """
@@ -37,7 +45,7 @@ class Cache(object):
         if isinstance(node, int):
             # NXDOMAIN, check if it is still valid
             expires = node
-            if expires < time.monotonic():
+            if expires < self.now:
                 raise KeyError('expired')
             else:
                 raise dns.resolver.NXDOMAIN()
@@ -49,12 +57,14 @@ class Cache(object):
         cache information for one RR type
         """
         assert (name not in self.storage) or (isinstance(self.storage[name], dict)), 'unsupported put operation'
-        self.storage.setdefault(name, {})[rrtype] = int(time.monotonic() + ttl)
+        self.storage.setdefault(name, {})[rrtype] = self.now + ttl
 
     def get_rrtype(self, name, rrtype):
         try:
             node = self.get_name(name)
-            node[rrtype]  # verify RRtype is in cache
+            expires = node[rrtype]  # verify RRtype is in cache
+            if expires < self.now:
+                raise KeyError('expired')
         except KeyError:  # not in cache
             self.miss += 1
             raise
@@ -64,9 +74,12 @@ class Cache(object):
 
 
 class Resolver(object):
-    def __init__(self, rootdb):
+    def __init__(self, auth):
         self.cache = Cache()
-        self.auth = Authoritative(rootdb)
+        self.auth = auth
+
+    def set_reltime(self, reltime):
+        self.cache.set_reltime(reltime)
 
     def lookup(self, name, rrtype):
         try:
