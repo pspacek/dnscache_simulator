@@ -3,7 +3,7 @@ import os.path
 from rfc2308 import Resolver, Authoritative
 
 
-def test_nxdomain():
+def test_res_nxdomain():
     """NXDOMAIN caching"""
     auth = Authoritative(os.path.join(os.path.dirname(__file__), 'test_root.zone'))
     res = Resolver(auth)
@@ -33,7 +33,7 @@ def test_nxdomain():
     assert res.auth.queries == 2
 
 
-def test_nodata():
+def test_res_nodata():
     """NODATA caching"""
     auth = Authoritative(os.path.join(os.path.dirname(__file__), 'test_root.zone'))
     res = Resolver(auth)
@@ -62,7 +62,7 @@ def test_nodata():
     assert res.cache.hit == 1
     assert res.auth.queries == 3
 
-def test_noerror():
+def test_res_noerror():
     """NOERROR caching"""
     auth = Authoritative(os.path.join(os.path.dirname(__file__), 'test_root.zone'))
     res = Resolver(auth)

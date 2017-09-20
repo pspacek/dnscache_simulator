@@ -85,11 +85,26 @@ class Resolver(object):
         try:
             return self.cache.get_rrtype(name, rrtype)
         except KeyError:
-            rcode, ttl = self.auth.query(name, rrtype)
+            rcode, answers = self.auth.query(name, rrtype)
             if rcode == dns.rcode.NOERROR:
-                self.cache.put_rrtype(name, rrtype, ttl)
+                self._store_noerror(answers)
             else:
-                self.cache.put_name(name, ttl)
+                assert rcode == dns.rcode.NXDOMAIN
+                self._store_nxdomain(answers)
+
+    def _store_noerror(self, answers):
+        for owner, data in answers.items():
+            name, rrtype = owner
+            self.cache.put_rrtype(name, rrtype, data["ttl"])
+
+    def _store_nxdomain(self, answers):
+        # answers is just negative TTL
+        assert len(answers) == 1
+        for owner, data in answers.items():
+            pass
+        name, rrtype = owner
+        assert rrtype == dns.rdatatype.ANY
+        self.cache.put_name(name, data["ttl"])
 
 
 class Authoritative(object):
@@ -102,17 +117,36 @@ class Authoritative(object):
         soa = soa_rrs[0]
         self.neg_ttl = min(soa_rrs.ttl, soa.minimum)  # https://tools.ietf.org/html/rfc2308#section-5
 
+    def _gen_nxdomain(self, name):
+        """
+        (qname, type ANY) is used encode negative TTL for the resolver
+        """
+        answer = {(name, dns.rdatatype.ANY): {"ttl": self.neg_ttl}}
+        return (dns.rcode.NXDOMAIN, answer)
+
+    def _gen_nodata(self, name, rrtype):
+        answers = {(name, rrtype): {"ttl": self.neg_ttl}}
+        return (dns.rcode.NOERROR, answers)
+
+    def _gen_noerror(self, name, rrtype, ttl):
+        answers = {(name, rrtype): {"ttl": ttl}}
+        return (dns.rcode.NOERROR, answers)
+
     def query(self, name, rrtype):
         """
-        Returns: (rcode, ttl)
+        Returns: (rcode, {(name, rrtype): ttl})
+
+        NXDOMAIN == rrtype ANY + TTL
         """
         self.queries += 1
         try:
             node = self.rootzone[name]
-        except KeyError:
-            return (dns.rcode.NXDOMAIN, self.neg_ttl)
+        except KeyError:  # NXDOMAIN
+            return self._gen_nxdomain(name)
         try:
             rrs = node.find_rdataset(dns.rdataclass.IN, rrtype)
-            return (dns.rcode.NOERROR, rrs.ttl)
-        except KeyError:
-            return (dns.rcode.NOERROR, self.neg_ttl)
+        except KeyError:  # NODATA
+            return self._gen_nodata(name, rrtype)
+
+        # NOERROR
+        return self._gen_noerror(name, rrtype, rrs.ttl)
