@@ -38,16 +38,15 @@ def read_queries(infile):
         print('failed line no. {}'.format(lineno))
         raise
 
-
 auth = rfc2308.Authoritative('root.zone')
 res = rfc2308.Resolver(auth)
 
 intext = io.TextIOWrapper(sys.stdin.buffer, encoding='ascii')
 prevtime = 0
 for now, qname, rrtype in read_queries(intext):
+    res.set_reltime(now)
+    res.lookup(qname, rrtype)
+
     if now - prevtime >= 3600:
         prevtime = now
         print('time {} hit {} miss {}'.format(now, res.cache.hit, res.cache.miss))
-
-    res.set_reltime(now)
-    res.lookup(qname, rrtype)
