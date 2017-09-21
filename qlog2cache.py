@@ -7,7 +7,7 @@ import sys
 
 import dns.rdatatype
 
-import rfc2308
+import rfc8198 as rfc
 
 logregex = r'^([0-9T:.-]+)\+[0-9]{2}:[0-9]{2} \'([^.]*\.)\' type \'([^\']+)\''
 
@@ -33,20 +33,21 @@ def read_queries(infile):
             rrtype = dns.rdatatype.from_text(match.group(3))
 
             #print('{} {} {}'.format(reltime, qname, rrtype))
-            yield (reltime, bytes(qname), rrtype)
+            yield (reltime, dns.name.from_text(bytes(qname)), rrtype)
     except:
         print('failed line no. {}'.format(lineno))
         raise
 
-auth = rfc2308.Authoritative('root.zone')
-res = rfc2308.Resolver(auth)
+auth = rfc.Authoritative('root.zone')
+res = rfc.Resolver(auth)
 
 intext = io.TextIOWrapper(sys.stdin.buffer, encoding='ascii')
 prevtime = 0
+print('time,hit,miss')
 for now, qname, rrtype in read_queries(intext):
     res.set_reltime(now)
     res.lookup(qname, rrtype)
 
     if now - prevtime >= 3600:
-        prevtime = now
-        print('time {} hit {} miss {}'.format(now, res.cache.hit, res.cache.miss))
+        prevtime = int(now / 3600) * 3600
+        print('{},{},{}'.format(now, res.cache.hit, res.cache.miss))
