@@ -11,6 +11,9 @@ Ignores NSEC magic because RFC 4035 section 4.5
 is against synthtetising answers from NSEC.
 """
 
+class Cache(rfc2308.Cache):
+    pass
+
 class Resolver(rfc2308.Resolver):
     pass
 
