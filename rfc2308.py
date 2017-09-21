@@ -110,7 +110,7 @@ class Resolver(object):
 class Authoritative(object):
     def __init__(self, rootdb):
         self.queries = 0
-        self.rootzone = dns.zone.from_file(rootdb, origin=dns.name.root)
+        self.rootzone = dns.zone.from_file(rootdb, origin=dns.name.root, relativize=False)
 
         rootnode = self.rootzone[dns.name.root]
         soa_rrs = rootnode.find_rdataset(dns.rdataclass.IN, dns.rdatatype.SOA)
@@ -138,6 +138,7 @@ class Authoritative(object):
 
         NXDOMAIN == rrtype ANY + TTL
         """
+        assert name.is_absolute()
         self.queries += 1
         try:
             node = self.rootzone[name]
